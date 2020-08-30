@@ -85,7 +85,7 @@ export class Graph {
   removeNode(_node: GraphNode) {
     let node = _node as GraphNodeImpl;
 
-    node.edges.forEach(edge => {
+    node.edges.forEach((edge) => {
       this.removeEdge(edge);
     });
 

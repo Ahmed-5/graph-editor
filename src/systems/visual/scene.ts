@@ -2,6 +2,7 @@ import konva from "konva";
 import { GraphEventType } from "../../event";
 import { NodeEntity, EdgeEntity } from "./entity";
 import { Graph } from "../../graph";
+const { NaiveTsp } = require("naive-tsp");
 
 export class Scene {
   Node = NodeEntity;
@@ -14,6 +15,9 @@ export class Scene {
 
   nodes_keys = new Array<string>();
   line_ends = new Array<string>();
+  tsp_path = new Array<string>();
+
+  drawn_lines: { [key: string]: { [key: string]: boolean } | undefined } = {};
 
   private needsDrawing = false;
 
@@ -40,7 +44,7 @@ export class Scene {
 
     this._layer.add(entity._shape);
 
-    this.updateConvexHulls();
+    this.updateAll();
   }
 
   removeNode(entity: NodeEntity) {
@@ -52,7 +56,7 @@ export class Scene {
     entity.key = undefined;
     entity._shape.remove();
 
-    this.updateConvexHulls();
+    this.updateAll();
   }
 
   addEdge(entity: EdgeEntity) {
@@ -230,13 +234,54 @@ export class Scene {
       this.nodes_keys = [];
       this.line_ends = [];
     }
-  }
-
-  removeConvexHulls = () => {
     if (this.nodes_keys.length > 1) {
       for (let i = 0; i < this.nodes_keys.length; i++) {
-        let f_node = this.graph.getNodeByKey(this.nodes_keys[i]);
-        let l_node = this.graph.getNodeByKey(this.line_ends[i]);
+        if (this.nodes_keys[i] != this.line_ends[i]) {
+          if (!this.drawn_lines[this.nodes_keys[i]]) {
+            this.drawn_lines[this.nodes_keys[i]] = {};
+          }
+          this.drawn_lines[this.nodes_keys[i]]![this.line_ends[i]] = true;
+        }
+      }
+    }
+  }
+
+  euclidean_dist(a: string, b: string) {
+    let p1 = this.nodes.get(a)!.position;
+    let p2 = this.nodes.get(b)!.position;
+    return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+  }
+
+  FindTspPath = () => {
+    this.nodes_keys = Array.from(this.nodes.keys());
+    let tspDict: { [key: string]: number } = {};
+    this.nodes_keys.forEach((p1) => {
+      this.nodes_keys.forEach((p2) => {
+        if (p1 !== p2) {
+          tspDict[p1 + p2] = this.euclidean_dist(p1, p2);
+        }
+      });
+    });
+    let sol = new NaiveTsp(
+      this.nodes_keys,
+      tspDict,
+      this.nodes_keys[0]
+    ).shortestPath();
+    for (let i = 0; i < sol.path.length - 1; i++) {
+      if (sol.path[i] != sol.path[i + 1]) {
+        if (!this.drawn_lines[sol.path[i]]) {
+          this.drawn_lines[sol.path[i]] = {};
+        }
+        this.drawn_lines[sol.path[i]]![sol.path[i + 1]] = true;
+      }
+    }
+  };
+
+  removeAllEdges = () => {
+    Object.keys(this.drawn_lines).forEach((k1) => {
+      Object.keys(this.drawn_lines[k1]!).forEach((k2) => {
+        let f_node = this.graph.getNodeByKey(k1);
+        let l_node = this.graph.getNodeByKey(k2);
         if (f_node != undefined && l_node != undefined) {
           if (this.graph.getEdgeByNodes(f_node!, l_node!)) {
             let e_key = this.graph.getEdgeByNodes(f_node!, l_node!)!.key;
@@ -244,28 +289,30 @@ export class Scene {
             this.removeEdge(e!);
           }
         }
-      }
-    }
+      });
+    });
+    this.drawn_lines = {};
   };
 
-  drawConvexHulls = () => {
-    if (this.nodes_keys.length > 1) {
-      for (let i = 0; i < this.nodes_keys.length; i++) {
-        let f = this.nodes.get(this.nodes_keys[i])!;
-        let l = this.nodes.get(this.line_ends[i])!;
+  drawAllEdges = () => {
+    Object.keys(this.drawn_lines).forEach((k1) => {
+      Object.keys(this.drawn_lines[k1]!).forEach((k2) => {
+        let f = this.nodes.get(k1)!;
+        let l = this.nodes.get(k2)!;
         let e = new EdgeEntity(f, l);
-        let f_node = this.graph.getNodeByKey(this.nodes_keys[i]);
-        let l_node = this.graph.getNodeByKey(this.line_ends[i]);
+        let f_node = this.graph.getNodeByKey(k1);
+        let l_node = this.graph.getNodeByKey(k2);
         if (!this.graph.getEdgeByNodes(f_node!, l_node!)) {
           this.addEdge(e);
         }
-      }
-    }
+      });
+    });
   };
 
-  updateConvexHulls = () => {
-    this.removeConvexHulls();
+  updateAll = () => {
+    this.removeAllEdges();
     this.allConvexHulls();
-    this.drawConvexHulls();
+    this.FindTspPath();
+    this.drawAllEdges();
   };
 }

@@ -30,7 +30,7 @@ abstract class Entity {
   public get events() {
     return {
       on: this._shape.on.bind(this._shape),
-      off: this._shape.off.bind(this._shape)
+      off: this._shape.off.bind(this._shape),
     };
   }
 }
@@ -64,7 +64,7 @@ export class NodeEntity extends Entity {
       let edges = system.graph.getEdgesOfNode(
         system.graph.getNodeByKey(this.key)!
       );
-      edges.forEach(edge => {
+      edges.forEach((edge) => {
         let edgeEntity = system.scene.edges.get(edge.key)!;
 
         edgeEntity.graphic = EdgeEntity.createEdge(
@@ -78,7 +78,7 @@ export class NodeEntity extends Entity {
     });
 
     this.events.on("dragend", () => {
-      system.scene.updateConvexHulls();
+      system.scene.updateAll();
       system.scene.markNeedsDrawing();
     });
   }
@@ -91,7 +91,7 @@ export class NodeEntity extends Entity {
       fill: color,
       stroke: "black",
       strokeWidth: 2,
-      draggable: true
+      draggable: true,
     });
 
     return node;
@@ -133,7 +133,7 @@ export class EdgeEntity extends Entity {
       fill: "white",
       stroke: color,
       strokeWidth: 2,
-      points: [from.position.x, from.position.y, to.position.x, to.position.y]
+      points: [from.position.x, from.position.y, to.position.x, to.position.y],
     });
 
     return edge;
